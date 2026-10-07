@@ -17,6 +17,19 @@ var _se=null,_us=null;
 try{_se=localStorage.getItem('lucid:session');_us=localStorage.getItem('lucid:users')}catch(e){}
 if(_se&&_us){document.documentElement.setAttribute('data-skipauth','1')}
 }catch(e){}})();
+/* ===== MOTOR PROXY 100% CLIENTE (Service Worker) =====
+   Las páginas se sirven desde este mismo origen, dentro de la app.
+   Se registra lo antes posible; la app lo usa en cuanto está activo. */
+(function(){
+window.__LUCID_SW='pending';
+try{
+if(!('serviceWorker' in navigator)||!/^(https|http):$/.test(location.protocol)){window.__LUCID_SW='unsupported';return}
+navigator.serviceWorker.register('sw.js').then(function(){return navigator.serviceWorker.ready}).then(function(){
+window.__LUCID_SW='ready';
+try{window.dispatchEvent(new Event('lucidswready'))}catch(e){}
+}).catch(function(){window.__LUCID_SW='failed'});
+}catch(e){window.__LUCID_SW='failed'}
+})();
 </script>
 <style>
 /* ============ TOKENS ============ */
@@ -423,7 +436,8 @@ html[data-skipauth="1"] .auth{display:none}
       <span class="lock">
         <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
       </span>
-      <input id="addr" placeholder="Busca o escribe una dirección…" spellcheck="false" autocomplete="off">
+      <span class="pmode hidden" id="pmode" title="Modo de carga">PROXY</span>
+      <input id="addr" placeholder="Busca o escribe una dirección — todo se abre aquí dentro…" spellcheck="false" autocomplete="off">
       <button class="ibtn sm" id="btnStar" title="Añadir a favoritos">
         <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       </button>
@@ -481,7 +495,7 @@ html[data-skipauth="1"] .auth{display:none}
             </div>
             <div class="cta-tx">
               <h3>Zona de juegos</h3>
-              <p>4 títulos listos: aquí dentro o de forma nativa.</p>
+              <p>4 títulos listos: se cargan aquí dentro, vía proxy nativo.</p>
             </div>
             <span class="cta-arrow">
               <svg class="ic lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -489,7 +503,7 @@ html[data-skipauth="1"] .auth{display:none}
           </div>
 
           <div class="exwrap">
-            <div class="exh">Enlaces exactos · se abren tal cual · de forma nativa</div>
+            <div class="exh">Enlaces exactos · se abren tal cual · aquí dentro (proxy nativo)</div>
             <div class="exact" id="exactLinks"></div>
           </div>
 
@@ -501,7 +515,11 @@ html[data-skipauth="1"] .auth{display:none}
             <svg class="ic lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           </div>
           <h2 id="spQuery"></h2>
-          <p class="sp-sub">Elige con qué motor abrir la búsqueda — nunca Google.</p>
+          <p class="sp-sub">Todo se abre aquí dentro, a través del proxy nativo — nunca Google, nunca pestañas externas.</p>
+          <div class="wikiwrap" id="wikiwrap">
+            <div class="whead">RESULTADOS INSTANTÁNEOS · WIKIPEDIA · AQUÍ MISMO</div>
+            <div id="wikiRes"></div>
+          </div>
           <div class="engines" id="spEngines"></div>
           <button class="btn ghost" id="spEdit">
             <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
@@ -509,14 +527,14 @@ html[data-skipauth="1"] .auth{display:none}
           </button>
         </div>
 
-        <iframe id="frame" style="display:none" referrerpolicy="no-referrer" allow="fullscreen; autoplay; gamepad; clipboard-write" allowfullscreen></iframe>
+        <div class="vframes" id="vframes"></div>
 
         <div class="loading" id="loading">
           <div class="spin"></div>
           <div class="ldt" id="ldDomain">Cargando…</div>
           <button class="ldchip" id="ldChip">
-            <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
-            ¿Se ve vacío o no carga? Ábrelo en una pestaña nueva
+            <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></svg>
+            ¿No carga? Reintentar con el proxy nativo
           </button>
         </div>
       </div>
@@ -541,7 +559,7 @@ html[data-skipauth="1"] .auth{display:none}
   <div class="pbody" id="gamesList"></div>
   <div class="pfoot">
     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-    Los enlaces se cargan exactos, tal cual. El botón ↗ abre cada juego de forma nativa, en una pestaña real.
+    Los enlaces se cargan exactos, tal cual, aquí dentro: mismo origen directo o vía proxy nativo.
   </div>
 </aside>
 
@@ -709,6 +727,41 @@ var store={
   del:function(k){try{localStorage.removeItem('lucid:'+k)}catch(e){}}
 };
 
+/* ================= PROXY NATIVO (SERVICE WORKER) =================
+   Las páginas cruzadas se sirven desde este mismo origen a través
+   del Service Worker (sw.js) — como el proxy del servidor, pero 100%
+   cliente. Nunca se abre nada fuera de la app, nunca Google. */
+var SCOPEDIR=(location.pathname.replace(/[^\/]*$/,''))||'/';
+function PRoute(u){return SCOPEDIR+'p/'+encodeURIComponent(u)}
+function sameOrigin(u){try{return new URL(u,location.href).origin===location.origin}catch(e){return false}}
+var swOK=false,swNotified=false;
+function swAnnounce(){
+  if(swNotified)return;swNotified=true;
+  setTimeout(function(){toast('Motor proxy nativo activo — las páginas se abren aquí dentro.','⬤')},600);
+}
+(function(){
+  function ready(){if(!swOK){swOK=true;swAnnounce()}}
+  if(window.__LUCID_SW==='ready')return ready();
+  var t0=Date.now();
+  (function poll(){
+    if(window.__LUCID_SW==='ready')return ready();
+    if(window.__LUCID_SW==='failed'||window.__LUCID_SW==='unsupported')return;
+    if(Date.now()-t0>9000)return;
+    setTimeout(poll,150);
+  })();
+})();
+window.addEventListener('lucidswready',function(){swOK=true;swAnnounce()});
+/* título de la pestaña según la página proxificada (notifica el motor proxy) */
+window.addEventListener('message',function(e){
+  if(!e.data||!e.data.lucidNav)return;
+  var t=null;
+  for(var i=0;i<tabs.length;i++){if(tabs[i].frame&&tabs[i].frame.contentWindow===e.source){t=tabs[i];break}}
+  if(!t)return;
+  var nt=String(e.data.lucidTitle||'').trim();
+  if(nt)t.title=nt.slice(0,60);
+  renderTabs();
+});
+
 /* ================= DATOS ================= */
 /* ENLACES EXACTOS — nunca se modifican, se cargan tal cual */
 var GAMES=[
@@ -719,10 +772,12 @@ var GAMES=[
 ];
 /* Buscadores — NUNCA Google */
 var ENGINES=[
-  {id:'ddg', n:'DuckDuckGo', d:'Privado, sin rastreo', ic:'D', u:function(q){return 'https://duckduckgo.com/?q='+encodeURIComponent(q)}},
-  {id:'bing',n:'Bing',       d:'Resultados de Microsoft', ic:'B', u:function(q){return 'https://www.bing.com/search?q='+encodeURIComponent(q)}},
-  {id:'wiki',n:'Wikipedia',  d:'Enciclopedia libre', ic:'W', u:function(q){return 'https://es.wikipedia.org/w/index.php?search='+encodeURIComponent(q)}},
-  {id:'yt',  n:'YouTube',    d:'Vídeos y gameplays', ic:'Y', u:function(q){return 'https://www.youtube.com/results?search_query='+encodeURIComponent(q)}}
+  {id:'ddg',   n:'DuckDuckGo', d:'Privado · sin rastreo', ic:'D', u:function(q){return 'https://html.duckduckgo.com/html/?q='+encodeURIComponent(q)}},
+  {id:'bing',  n:'Bing',       d:'Resultados web de Microsoft', ic:'B', u:function(q){return 'https://www.bing.com/search?q='+encodeURIComponent(q)}},
+  {id:'brave', n:'Brave',      d:'Búsqueda independiente', ic:'B', u:function(q){return 'https://search.brave.com/search?q='+encodeURIComponent(q)}},
+  {id:'mojeek',n:'Mojeek',     d:'Motor propio, sin rastreo', ic:'M', u:function(q){return 'https://www.mojeek.com/search?q='+encodeURIComponent(q)}},
+  {id:'ecosia',n:'Ecosia',     d:'Planta árboles al buscar', ic:'E', u:function(q){return 'https://www.ecosia.org/search?q='+encodeURIComponent(q)}},
+  {id:'wiki',  n:'Wikipedia',  d:'Enciclopedia libre', ic:'W', u:function(q){return 'https://es.wikipedia.org/w/index.php?search='+encodeURIComponent(q)}}
 ];
 var REPLIES=['jajaja 😂','va, dame 5 min y entro','¿jugamos al F1?','no manches, otra vez? 😅','gg 🏆','ya casi acabo la tarea 😬','¿ya probaste Zona Cero? está brutal','estoy en clase, después te digo','hoy sí, ¿a las 8?','dale, monto la sala 🔥'];
 var GRADS=['linear-gradient(135deg,#ffffff,#8f8f8f)','linear-gradient(135deg,#e8e8e8,#5c5c5c)','linear-gradient(135deg,#d4d4d4,#404040)','linear-gradient(135deg,#c2c2c2,#2f2f2f)'];
@@ -750,7 +805,7 @@ function applySettings(){
 function saveSettings(){store.set('settings',settings);applySettings()}
 
 /* ================= REFERENCIAS ================= */
-var auth=$('auth'),app=$('app'),addr=$('addr'),frame=$('frame'),home=$('home'),
+var auth=$('auth'),app=$('app'),addr=$('addr'),home=$('home'),
     searchpage=$('searchpage'),loading=$('loading'),ldDomain=$('ldDomain'),ldChip=$('ldChip'),
     overlay=$('overlay'),modalSettings=$('modal-settings'),toasts=$('toasts'),
     tabstrip=$('tabstrip'),btnStar=$('btnStar'),btnBack=$('btnBack'),btnFwd=$('btnFwd'),btnReload=$('btnReload'),
@@ -824,6 +879,7 @@ function newTab(){
 function closeTabById(id){
   var i=tabs.findIndex(function(t){return t.id===id});
   if(i<0)return;
+  detachFrame(tabs[i]);
   tabs.splice(i,1);
   if(!tabs.length){newTab();return}
   if(activeTab&&activeTab.id===id)switchTab(tabs[Math.min(i,tabs.length-1)].id);
@@ -833,7 +889,7 @@ function switchTab(id){
   activeTab=tabs.find(function(t){return t.id===id})||null;
   renderTabs();
   if(activeTab){
-    if(activeTab.url){showFrame(activeTab.url);addr.value=activeTab.url}
+    if(activeTab.url){loadTabNow(activeTab);addr.value=activeTab.url}
     else{showHome();addr.value=''}
   }
   updateNavBtns();refreshStar();
@@ -856,23 +912,91 @@ function updateNavBtns(){
   btnFwd.disabled=!(t&&t.hi<t.hist.length-1);
 }
 
-/* ================= NAVEGACIÓN (ENLACES TAL CUAL, NUNCA GOOGLE) ================= */
+/* ================= NAVEGACIÓN (PROXY NATIVO — ENLACES TAL CUAL, NUNCA GOOGLE) ================= */
 function titleFor(u){var g=GAMES.find(function(g){return g.url===u});return g?g.name:hostOf(u)}
-function showFrame(url){
+/* Modo de carga: mismo origen → directo (nativo); cruzado → SIEMPRE proxy nativo */
+function modeFor(url){return sameOrigin(url)?'direct':(swOK?'proxy':'direct')}
+function updatePMode(mode){
+  var p=$('pmode');if(!p)return;
+  if(!mode){p.classList.add('hidden');return}
+  p.classList.remove('hidden');
+  p.textContent=mode==='proxy'?'PROXY':'DIRECTO';
+  p.classList.toggle('proxy',mode==='proxy');
+  p.title=mode==='proxy'?'Servido por el proxy nativo, dentro de la app':'Carga nativa de mismo origen, dentro de la app';
+}
+/* Cada pestaña tiene su propio iframe: el juego conserva el estado al cambiar de pestaña */
+function frameFor(t){
+  var f=t.frame;
+  if(!f){
+    f=document.createElement('iframe');
+    f.className='vframe';
+    f.setAttribute('referrerpolicy','no-referrer');
+    f.setAttribute('allow','fullscreen; autoplay; gamepad; clipboard-write');
+    f.setAttribute('allowfullscreen','');
+    f.addEventListener('load',onFrameLoad(t));
+    $('vframes').appendChild(f);
+    t.frame=f;
+  }
+  return f;
+}
+function onFrameLoad(t){
+  return function(){
+    if(activeTab===t){loading.classList.remove('show');clearTimeout(chipTimer);ldChip.classList.remove('show')}
+    var real=t.url;
+    if(!real)return;
+    var tt=titleFor(real);
+    try{
+      var d=t.frame.contentDocument;
+      if(d){
+        if(d.documentElement&&d.documentElement.getAttribute('data-lucid-error')){
+          tt='Sin conexión · '+titleFor(real);
+          if(activeTab===t)setTimeout(function(){toast('Ese sitio no respondió a través del proxy. La flecha ↗ lo abre en pestaña real.','!')},400);
+        }else if(d.title&&d.title.trim())tt=d.title;
+      }
+    }catch(e){}
+    t.title=tt;
+    renderTabs();
+  };
+}
+function detachFrame(t){if(t&&t.frame){try{t.frame.remove()}catch(e){}t.frame=null}}
+function hideAllFrames(){tabs.forEach(function(t){if(t.frame)t.frame.classList.remove('on')})}
+function showFrame(url,mode,force){
+  var t=activeTab;if(!t)return;
+  mode=mode||modeFor(url);
+  t.mode=mode;
   home.classList.add('hidden');
   searchpage.classList.add('hidden');
-  frame.style.display='block';
-  if(frame.dataset.cur!==url){frame.dataset.cur=url;frame.src=url} /* EXACTO, tal cual */
+  var f=frameFor(t);
+  hideAllFrames();
+  f.classList.add('on');
+  var src=mode==='proxy'?PRoute(url):url; /* directo = URL EXACTA tal cual */
+  if(force||f.dataset.cur!==src){f.dataset.cur=src;f.dataset.real=url;f.src=src}
   showLoading(url);
+  updatePMode(mode);
+}
+/* Espera breve al motor proxy antes de resignarse al modo directo */
+function loadTabNow(t){
+  var url=t.url;
+  if(!url){showHome();return}
+  if(!sameOrigin(url)&&!swOK){
+    showLoading(url);updatePMode('proxy');
+    var waited=0;
+    (function w(){
+      if(t.url!==url)return;           /* la pestaña navegó a otro lado */
+      if(swOK){showFrame(url,'proxy');return}
+      if(waited>=2400){showFrame(url,'direct');return}
+      waited+=150;setTimeout(w,150);
+    })();
+  }else showFrame(url);
 }
 function showHome(){
   closeAll();
   home.classList.remove('hidden');
   searchpage.classList.add('hidden');
   loading.classList.remove('show');clearTimeout(chipTimer);ldChip.classList.remove('show');
-  frame.style.display='none';
-  frame.src='about:blank';frame.dataset.cur='';
-  if(activeTab){activeTab.url=null;activeTab.title='Nueva pestaña'}
+  hideAllFrames();
+  if(activeTab){activeTab.url=null;activeTab.title='Nueva pestaña';detachFrame(activeTab)}
+  updatePMode(null);
   addr.value='';
   renderTabs();updateNavBtns();refreshStar();renderQuick();
 }
@@ -883,14 +1007,7 @@ function showLoading(url){
   clearTimeout(chipTimer);
   chipTimer=setTimeout(function(){ldChip.classList.add('show')},6500);
 }
-frame.addEventListener('load',function(){
-  loading.classList.remove('show');clearTimeout(chipTimer);ldChip.classList.remove('show');
-  if(frame.dataset.cur&&activeTab){activeTab.title=titleFor(frame.dataset.cur);renderTabs()}
-  if(!store.get('tipExt',false)&&frame.dataset.cur&&frame.dataset.cur.indexOf('github.io')>-1){
-    store.set('tipExt',true);
-    setTimeout(function(){toast('Si algo se ve en blanco, usa la flecha ↗ de la barra para abrirlo en pestaña nueva.','↗')},1600);
-  }
-});
+/* (cada iframe gestiona su propio evento de carga: onFrameLoad) */
 function go(url,record){
   if(record===undefined)record=true;
   closeAll();
@@ -898,7 +1015,7 @@ function go(url,record){
   t.url=url;
   if(record){t.hist=t.hist.slice(0,t.hi+1);t.hist.push(url);t.hi=t.hist.length-1}
   t.title=titleFor(url);
-  showFrame(url);
+  loadTabNow(t);
   addr.value=url;
   addHistory(url,t.title);
   renderTabs();updateNavBtns();refreshStar();
@@ -909,15 +1026,20 @@ function goHist(delta){
   if(ni<0||ni>=t.hist.length)return;
   t.hi=ni;var u=t.hist[ni];
   t.url=u;t.title=titleFor(u);
-  showFrame(u);addr.value=u;
+  loadTabNow(t);addr.value=u;
   renderTabs();updateNavBtns();refreshStar();
 }
 btnBack.onclick=function(){goHist(-1)};
 btnFwd.onclick=function(){goHist(1)};
 btnReload.onclick=function(){
-  var u=activeTab&&activeTab.url;if(!u)return;
-  showLoading(u);
-  try{frame.contentWindow.location.reload()}catch(e){frame.src='about:blank';setTimeout(function(){frame.src=u},40)}
+  var t=activeTab;if(!t||!t.url)return;
+  showLoading(t.url);
+  if(!t.frame){loadTabNow(t);return}
+  var src=t.mode==='proxy'?PRoute(t.url):t.url;
+  if(t.mode==='proxy'){
+    try{t.frame.contentWindow.location.reload()}
+    catch(e){t.frame.dataset.cur='';t.frame.src=src}
+  }else{t.frame.dataset.cur='';t.frame.src=src}
 };
 $('btnHomeTool').onclick=showHome;
 $('sbHome').onclick=showHome;
@@ -929,11 +1051,15 @@ $('dotG').onclick=function(){
 };
 $('btnExt').onclick=function(){
   var u=activeTab&&activeTab.url;
-  if(u)window.open(u,'_blank','noopener');
-  else if(lastQuery)window.open(ENGINES[0].u(lastQuery),'_blank','noopener');
-  else toast('Abre una página primero.','↗');
+  if(!u)return toast('Abre una página primero.','↗');
+  window.open(u,'_blank','noopener');
+  toast('Abierto en pestaña real (último recurso).','↗');
 };
-ldChip.onclick=function(){var u=activeTab&&activeTab.url;if(u)window.open(u,'_blank','noopener')};
+ldChip.onclick=function(){
+  var t=activeTab;if(!t||!t.url)return;
+  if(!sameOrigin(t.url)&&swOK){showFrame(t.url,'proxy',true);toast('Reintentando a través del proxy nativo…','⬤')}
+  else{window.open(t.url,'_blank','noopener');toast('Abierto en pestaña real (último recurso).','↗')}
+};
 
 /* barra de direcciones: respeta EXACTAMENTE lo que escribes */
 function smartGo(raw){
@@ -959,56 +1085,72 @@ addr.addEventListener('keydown',function(e){if(e.key==='Enter'){addr.blur();smar
 function searchFor(q){
   closeAll();
   lastQuery=q;
-  if(activeTab){activeTab.url=null;activeTab.title='Búsqueda'}
+  if(activeTab){activeTab.url=null;activeTab.title='Búsqueda';detachFrame(activeTab)}
   home.classList.add('hidden');
   searchpage.classList.remove('hidden');
-  frame.style.display='none';frame.src='about:blank';frame.dataset.cur='';
-  loading.classList.remove('show');clearTimeout(chipTimer);
+  hideAllFrames();
+  updatePMode(null);
+  loading.classList.remove('show');clearTimeout(chipTimer);ldChip.classList.remove('show');
   $('spQuery').textContent='“'+q+'”';
   addr.value=q;
   renderTabs();
+  renderWiki(q);
 }
+/* Resultados instantáneos — Wikipedia (CORS directo, siempre disponible, sin Google) */
+function renderWiki(q){
+  var box=$('wikiRes');
+  if(!box)return;
+  box.innerHTML='<div class="wload">Buscando resultados instantáneos…</div>';
+  fetch('https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(q)+'&srlimit=6&format=json&origin=*')
+  .then(function(r){return r.json()})
+  .then(function(j){
+    var items=(j&&j.query&&j.query.search)||[];
+    if(!items.length){box.innerHTML='<div class="wload">Sin resultados instantáneos — usa un motor abajo.</div>';return}
+    box.innerHTML=items.map(function(it){
+      var u='https://es.wikipedia.org/wiki/'+encodeURIComponent(String(it.title).replace(/ /g,'_'));
+      return '<div class="wres" data-u="'+esc(u)+'"><span class="wt">'+esc(it.title)+'</span><span class="ws">'+esc(String(it.snippet||'').replace(/<[^>]+>/g,''))+'…</span></div>';
+    }).join('');
+  })
+  .catch(function(){box.innerHTML='<div class="wload">Resultados instantáneos no disponibles ahora — usa un motor abajo.</div>'});
+}
+$('wikiRes').addEventListener('click',function(e){
+  var r=e.target.closest('.wres');if(!r)return;
+  go(r.dataset.u); /* se abre aquí dentro, vía proxy nativo */
+});
 $('spEngines').innerHTML=ENGINES.map(function(en){
-  return '<button class="eng" data-e="'+en.id+'"><span class="eic">'+en.ic+'</span><span class="etxt"><span class="en">'+en.n+'</span><span class="ed">'+en.d+'</span></span><span class="ego" data-ext="'+en.id+'" title="Abrir en pestaña nueva real"><svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span></button>';
+  return '<button class="eng" data-e="'+en.id+'"><span class="eic">'+en.ic+'</span><span class="etxt"><span class="en">'+en.n+'</span><span class="ed">'+en.d+'</span></span><span class="ego">abrir aquí →</span></button>';
 }).join('');
 $('spEngines').addEventListener('click',function(e){
-  var ext=e.target.closest('[data-ext]');
-  if(ext){e.stopPropagation();var en=ENGINES.find(function(x){return x.id===ext.dataset.ext});window.open(en.u(lastQuery),'_blank','noopener');return}
   var card=e.target.closest('.eng');if(!card)return;
-  var en2=ENGINES.find(function(x){return x.id===card.dataset.e});
-  go(en2.u(lastQuery));
+  var en=ENGINES.find(function(x){return x.id===card.dataset.e});
+  if(!en||!lastQuery)return;
+  go(en.u(lastQuery)); /* el motor se abre AQUÍ, dentro de la app, vía proxy */
 });
 $('spEdit').onclick=function(){addr.focus();addr.select()};
 
 /* ================= JUEGOS (PANEL EXCLUSIVO DEL GAMEPAD) ================= */
 $('gamesList').innerHTML=GAMES.map(function(g){
-  return '<div class="gcard" data-g="'+g.id+'"><div class="gart" style="background:linear-gradient(135deg,'+g.grad[0]+','+g.grad[1]+')"><span class="gt">'+g.tag+'</span><span class="gurl">'+esc(g.url)+'</span></div><div class="ginfo"><div><div class="gn">'+esc(g.name)+'</div><div class="gd">'+esc(g.desc)+'</div></div><button class="gplay">▶ Jugar</button><button class="gnat" data-nat="'+g.id+'" title="Abrir de forma nativa (pestaña real del navegador)"><svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></button></div></div>';
+  return '<div class="gcard" data-g="'+g.id+'"><div class="gart" style="background:linear-gradient(135deg,'+g.grad[0]+','+g.grad[1]+')"><span class="gt">'+g.tag+'</span><span class="gurl">'+esc(g.url)+'</span></div><div class="ginfo"><div><div class="gn">'+esc(g.name)+'</div><div class="gd">'+esc(g.desc)+'</div></div><button class="gplay">▶ Jugar</button></div></div>';
 }).join('');
 $('gamesList').addEventListener('click',function(e){
-  var nat=e.target.closest('.gnat');
-  if(nat){
-    var gn=GAMES.find(function(x){return x.id===nat.dataset.nat});
-    if(gn){window.open(gn.url,'_blank','noopener');toast(gn.name+' abierto de forma nativa.','↗')}
-    return;
-  }
   var card=e.target.closest('.gcard');if(!card)return;
   var g=GAMES.find(function(x){return x.id===card.dataset.g});
   if(!g)return;
-  go(g.url); /* ENLACE EXACTO, tal cual, sin modificaciones */
+  go(g.url); /* ENLACE EXACTO, tal cual — se carga AQUÍ dentro */
   toast('Abriendo '+g.name+'…','▶');
 });
 $('ctaGames').onclick=function(){openPanel('games')};
 
-/* ================= ENLACES FIJADOS (NATIVOS) JUNTO AL BUSCADOR ================= */
+/* ================= JUEGOS FIJADOS JUNTO AL BUSCADOR (SE ABREN AQUÍ) ================= */
 $('pins').innerHTML=GAMES.map(function(g){
-  return '<button class="pin" data-p="'+g.id+'" title="'+esc(g.name)+' — '+esc(g.url)+' — se abre de forma nativa">'+g.tag+'</button>';
+  return '<button class="pin" data-p="'+g.id+'" title="'+esc(g.name)+' — '+esc(g.url)+' — se abre aquí dentro">'+g.tag+'</button>';
 }).join('');
 $('pins').addEventListener('click',function(e){
   var p=e.target.closest('.pin');if(!p)return;
   var g=GAMES.find(function(x){return x.id===p.dataset.p});
   if(!g)return;
-  window.open(g.url,'_blank','noopener'); /* enlace exacto, en una pestaña real */
-  toast(g.name+' abierto de forma nativa.','↗');
+  go(g.url); /* enlace exacto, tal cual — aquí dentro */
+  toast('Abriendo '+g.name+'…','▶');
 });
 
 /* ================= PANELES ================= */
@@ -1201,16 +1343,15 @@ $('quickLinks').addEventListener('click',function(e){
   if(c)go(c.dataset.go);
 });
 
-/* ================= ENLACES EXACTOS EN EL INICIO (APERTURA NATIVA) ================= */
+/* ================= ENLACES EXACTOS EN EL INICIO (SE ABREN AQUÍ) ================= */
 $('exactLinks').innerHTML=GAMES.map(function(g){
-  return '<div class="excard"><div class="xic">'+g.tag+'</div><div class="xt"><div class="xn">'+esc(g.name)+'</div><div class="xu" title="'+esc(g.url)+'">'+esc(g.url)+'</div></div><button class="xgo" data-h="'+g.id+'">Aquí</button><button class="xnat" data-n="'+g.id+'" title="Abrir de forma nativa (pestaña real)">Nativa ↗</button></div>';
+  return '<div class="excard"><div class="xic">'+g.tag+'</div><div class="xt"><div class="xn">'+esc(g.name)+'</div><div class="xu" title="'+esc(g.url)+'">'+esc(g.url)+'</div></div><button class="xgo" data-h="'+g.id+'">Abrir aquí</button></div>';
 }).join('');
 $('exactLinks').addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
-  var g=GAMES.find(function(x){return x.id===b.dataset.h||x.id===b.dataset.n});
+  var g=GAMES.find(function(x){return x.id===b.dataset.h});
   if(!g)return;
-  if(b.dataset.n){window.open(g.url,'_blank','noopener');toast(g.name+' abierto de forma nativa.','↗')}
-  else{go(g.url);toast('Abriendo '+g.name+'…','▶')}
+  go(g.url);toast('Abriendo '+g.name+'…','▶');
 });
 function greetWord(){var h=new Date().getHours();return h<6?'Buenas noches':h<12?'Buenos días':h<20?'Buenas tardes':'Buenas noches'}
 function greetUser(){$('greet').textContent=greetWord()+', '+session}
